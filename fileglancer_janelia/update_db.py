@@ -32,26 +32,18 @@ def update_file_share_paths(db_url: str) -> bool:
     with db.get_db_session(db_url) as session:
         # Get the last refresh time from the database
         last_refresh = db.get_last_refresh(session, "file_share_paths")
+        # Get updated paths from the wiki
+        new_paths, table_last_updated = get_file_share_paths()
 
-        logger.info("Checking for updates to file share paths...")
+        # Check if the wiki data has actually changed
+        if last_refresh and table_last_updated == last_refresh.source_last_updated:
+            logger.info("Wiki has not changed since last update, skipping refresh")
+            return False
 
-        try:
-            # Get updated paths from the wiki
-            new_paths, table_last_updated = get_file_share_paths()
-
-            # Check if the wiki data has actually changed
-            if last_refresh and table_last_updated == last_refresh.source_last_updated:
-                logger.info("Wiki has not changed since last update, skipping refresh")
-                return False
-
-            logger.info("Wiki has changed, refreshing file share paths...")
-            db.update_file_share_paths(session, new_paths, table_last_updated)
-            logger.info(f"Successfully updated {len(new_paths)} file share paths")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error updating file share paths: {e}")
-            raise
+        logger.info("Wiki has changed, refreshing file share paths...")
+        db.update_file_share_paths(session, new_paths, table_last_updated)
+        logger.info(f"Successfully updated {len(new_paths)} file share paths")
+        return True
 
 
 def update_external_buckets(db_url: str) -> bool:
@@ -70,26 +62,18 @@ def update_external_buckets(db_url: str) -> bool:
     with db.get_db_session(db_url) as session:
         # Get the last refresh time from the database
         last_refresh = db.get_last_refresh(session, "external_buckets")
+        # Get updated buckets from the wiki
+        new_buckets, table_last_updated = get_external_buckets()
 
-        logger.info("Checking for updates to external buckets...")
+        # Check if the wiki data has actually changed
+        if last_refresh and table_last_updated == last_refresh.source_last_updated:
+            logger.info("Wiki has not changed since last update, skipping refresh")
+            return False
 
-        try:
-            # Get updated buckets from the wiki
-            new_buckets, table_last_updated = get_external_buckets()
-
-            # Check if the wiki data has actually changed
-            if last_refresh and table_last_updated == last_refresh.source_last_updated:
-                logger.info("Wiki has not changed since last update, skipping refresh")
-                return False
-
-            logger.info("Wiki has changed, refreshing external buckets...")
-            db.update_external_buckets(session, new_buckets, table_last_updated)
-            logger.info(f"Successfully updated {len(new_buckets)} external buckets")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error updating external buckets: {e}")
-            raise
+        logger.info("Wiki has changed, refreshing external buckets...")
+        db.update_external_buckets(session, new_buckets, table_last_updated)
+        logger.info(f"Successfully updated {len(new_buckets)} external buckets")
+        return True
 
 
 def main():
@@ -108,22 +92,21 @@ def main():
     logger.info("Starting database update from wiki")
     logger.info(f"Database URL: {settings.db_url}")
 
+    error = False
     try:
-        # Update file share paths
-        fsp_updated = update_file_share_paths(settings.db_url)
-
-        # Update external buckets
-        buckets_updated = update_external_buckets(settings.db_url)
-
-        if fsp_updated or buckets_updated:
-            logger.info("Database update completed successfully")
-        else:
-            logger.info("No updates were necessary")
-
+        update_file_share_paths(settings.db_url)
     except Exception as e:
-        logger.exception(f"Failed to update database: {e}")
-        sys.exit(1)
+        logger.exception(f"Error updating file share paths: {e}")
+        error = True
 
+    try:
+        update_external_buckets(settings.db_url)
+    except Exception as e:
+        logger.exception(f"Error updating external buckets: {e}")
+        error = True
+
+    if error:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
