@@ -42,11 +42,6 @@ Check timer status:
 sudo systemctl status fileglancer-update.timer
 ```
 
-List all timers:
-```bash
-sudo systemctl list-timers fileglancer-update.timer
-```
-
 Check service logs:
 ```bash
 sudo journalctl -u fileglancer-update.service -f
@@ -86,3 +81,4 @@ sudo journalctl -u fileglancer-update.service -f
 - Logs are stored in systemd journal (use `journalctl` to view)
 - All admins with sudo access can manage this timer
 - The `EnvironmentFile` directive automatically exports all variables from the .env file
+
