@@ -15,6 +15,10 @@ from loguru import logger
 from fileglancer_central import database as db
 from fileglancer_central.settings import get_settings
 
+def _compare_datetimes(dt1, dt2):
+    """Compare two datetimes, ignoring timezone information"""
+    return dt1.replace(tzinfo=None) == dt2.replace(tzinfo=None)
+
 
 def update_file_share_paths(db_url: str) -> bool:
     """
@@ -36,11 +40,11 @@ def update_file_share_paths(db_url: str) -> bool:
         new_paths, table_last_updated = get_file_share_paths()
 
         # Check if the wiki data has actually changed
-        if last_refresh and table_last_updated == last_refresh.source_last_updated:
-            logger.info("Wiki has not changed since last update, skipping refresh")
+        if last_refresh and _compare_datetimes(table_last_updated, last_refresh.source_last_updated):
+            logger.info("File share paths have not changed, skipping update")
             return False
 
-        logger.info("Wiki has changed, refreshing file share paths...")
+        logger.info("File share paths have changed, updating...")
         db.update_file_share_paths(session, new_paths, table_last_updated)
         logger.info(f"Successfully updated {len(new_paths)} file share paths")
         return True
@@ -66,11 +70,11 @@ def update_external_buckets(db_url: str) -> bool:
         new_buckets, table_last_updated = get_external_buckets()
 
         # Check if the wiki data has actually changed
-        if last_refresh and table_last_updated == last_refresh.source_last_updated:
-            logger.info("Wiki has not changed since last update, skipping refresh")
+        if last_refresh and _compare_datetimes(table_last_updated, last_refresh.source_last_updated):
+            logger.info("External buckets have not changed, skipping update")
             return False
 
-        logger.info("Wiki has changed, refreshing external buckets...")
+        logger.info("External buckets have changed, updating...")
         db.update_external_buckets(session, new_buckets, table_last_updated)
         logger.info(f"Successfully updated {len(new_buckets)} external buckets")
         return True
