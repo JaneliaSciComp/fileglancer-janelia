@@ -6,7 +6,7 @@ After=network.target
 Type=oneshot
 WorkingDirectory=/opt/deploy/fileglancer-janelia
 EnvironmentFile=/opt/deploy/fileglancer-hub/.env.central
-ExecStart=/usr/bin/pixi run update-db
+ExecStart=/usr/local/bin/pixi run update-db
 
 # Logging
 StandardOutput=journal
