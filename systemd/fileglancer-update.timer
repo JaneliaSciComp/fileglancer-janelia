@@ -1,0 +1,14 @@
+[Unit]
+Description=Run fileglancer database update every 5 minutes
+Requires=fileglancer-update.service
+
+[Timer]
+# Run 5 minutes after boot
+OnBootSec=5min
+# Run every 5 minutes after the last run completes
+OnUnitActiveSec=5min
+# Ensure we catch up if system was down
+Persistent=true
+
+[Install]
+WantedBy=timers.target
