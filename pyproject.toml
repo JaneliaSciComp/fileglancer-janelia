@@ -18,6 +18,13 @@ dependencies = [
     "atlassian-python-api >=3.41",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-html"
+]
+
 [build-system]
 requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -34,7 +41,15 @@ platforms = ["osx-arm64", "osx-64", "linux-64"]
 
 [tool.pixi.tasks]
 dev-install = "pip install -e ."
-update-db = { cmd = "python -m fileglancer_janelia.update_db" }
+update-db = { cmd = "python -m fileglancer_janelia.update_db", depends-on = ["dev-install"] }
+
+[tool.pixi.feature.test.tasks]
+test-install = "pip install -e ."
+test = { cmd = "pytest", depends-on = ["test-install"] }
+
+[tool.pixi.environments]
+default = {features = [], solve-group = "default"}
+test = {features = ["test"], solve-group = "default"}
 
 [tool.pixi.dependencies]
 python = "3.12.*"
