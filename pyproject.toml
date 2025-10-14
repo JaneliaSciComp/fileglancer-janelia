@@ -1,6 +1,6 @@
 [project]
 name = "fileglancer-janelia"
-version = "0.1.0"
+version = "0.2.0"
 readme = "README.md"
 authors = [
     { name = "Konrad Rokicki", email = "rokickik@janelia.hhmi.org" }
@@ -14,7 +14,7 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "fileglancer-central",
+    "fileglancer >=2.0.0",
     "atlassian-python-api >=3.41",
 ]
 

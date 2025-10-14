@@ -7,8 +7,8 @@ import pytest
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from fileglancer_central.database import Base, FileSharePathDB, LastRefreshDB
-from fileglancer_central.utils import slugify_path
+from fileglancer.database import Base, FileSharePathDB, LastRefreshDB
+from fileglancer.utils import slugify_path
 from fileglancer_janelia.update_db import _compare_datetimes, update_file_share_paths
 
 
