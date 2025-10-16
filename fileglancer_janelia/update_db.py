@@ -11,15 +11,14 @@ import sys
 from datetime import datetime
 from loguru import logger
 
-# Import from fileglancer-central
-from fileglancer_central.database import (
+from fileglancer.database import (
     FileSharePathDB,
     ExternalBucketDB,
     LastRefreshDB,
     get_db_session,
     get_last_refresh,
 )
-from fileglancer_central.settings import get_settings
+from fileglancer.settings import get_settings
 
 def _compare_datetimes(dt1, dt2):
     """Compare two datetimes, ignoring timezone information"""

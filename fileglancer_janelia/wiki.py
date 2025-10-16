@@ -14,8 +14,8 @@ from atlassian import Confluence
 from loguru import logger
 
 # Removed database imports - wiki module should not know about database
-from fileglancer_central.utils import slugify_path
-from fileglancer_central.settings import get_settings
+from fileglancer.utils import slugify_path
+from fileglancer.settings import get_settings
 
 settings = get_settings()
 

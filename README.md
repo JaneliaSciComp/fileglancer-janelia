@@ -1,6 +1,6 @@
-# fileglancer-janelia
+# Janelia customizations for Fileglancer
 
-This repository hosts Janelia-specific scripts for Fileglancer. This code is necessary to running Fileglancer at Janelia, but would need to be customized if deploying Fileglancer at another institution.
+This repository hosts Janelia-specific scripts for Fileglancer. This code is necessary for running Fileglancer at Janelia and integrating with our other systems.
 
 ## Setup
 
@@ -13,7 +13,16 @@ pixi install
 
 The Janelia wiki is used to populated the File Share Paths and External Buckets in the Fileglancer Central database. The update script for this is intended to be run on a schedule. We use [Systemd to run it](docs/SystemdTimer.md) on the Janelia dev and prod servers.
 
-You can test it by passing an `.env` file containing your Database setup and Atlassian Cloud credentials:
+To run it on your dev server, check this repo out at the same level as the [fileglancer repo](https://github.com/JaneliaSciComp/fileglancer):
+
 ```
-/run_update_db.sh .env.central
+.
+├── fileglancer
+└── fileglancer-janelia
+```
+
+You can then update your database with `update-db` task. Before running this command, ensure that your Fileglancer server is stopped, as it holds a lock on the Sqlite database file.
+
+```
+pixi run update-db
 ```

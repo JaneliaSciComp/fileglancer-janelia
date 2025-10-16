@@ -1,6 +1,6 @@
 [project]
 name = "fileglancer-janelia"
-version = "0.1.0"
+version = "0.2.0"
 readme = "README.md"
 authors = [
     { name = "Konrad Rokicki", email = "rokickik@janelia.hhmi.org" }
@@ -14,7 +14,6 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "fileglancer-central",
     "atlassian-python-api >=3.41",
 ]
 
@@ -41,7 +40,7 @@ platforms = ["osx-arm64", "osx-64", "linux-64"]
 
 [tool.pixi.tasks]
 dev-install = "pip install -e ."
-update-db = { cmd = "python -m fileglancer_janelia.update_db", depends-on = ["dev-install"] }
+update-db = { cmd = "python -m fileglancer_janelia.update_db", depends-on = ["dev-install"], cwd = "../fileglancer" }
 
 [tool.pixi.feature.test.tasks]
 test-install = "pip install -e ."
