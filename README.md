@@ -21,8 +21,9 @@ To run it on your dev server, check this repo out at the same level as the [file
 └── fileglancer-janelia
 ```
 
-You can then update your database with `update-db` task. Before running this command, ensure that your Fileglancer server is stopped, as it holds a lock on the Sqlite database file.
+You can then update your database with `dev-update-db` task. Before running this command, ensure that your Fileglancer server is stopped, as it holds a lock on the Sqlite database file.
 
 ```
-pixi run update-db
+pixi run dev-update-db
 ```
+
