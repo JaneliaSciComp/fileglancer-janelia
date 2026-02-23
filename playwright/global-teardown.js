@@ -44,24 +44,25 @@ async function globalTeardown(config) {
   }
   console.log(`  Restored ${state.proxiedPaths.length} data link(s)`);
 
-  // Restore the areDataLinksAutomatic preference to its original value
-  if (state.autoLinksPreference !== null) {
-    await apiContext.put("/api/preference/areDataLinksAutomatic", {
-      data: state.autoLinksPreference,
-    });
-    console.log(
-      `  Restored areDataLinksAutomatic=${JSON.stringify(state.autoLinksPreference)}`,
-    );
-  } else {
-    // Preference was absent before tests; delete it in case tests set it
-    const checkResp = await apiContext.get(
-      "/api/preference/areDataLinksAutomatic",
-    );
-    if (checkResp.ok()) {
-      await apiContext.delete("/api/preference/areDataLinksAutomatic");
-      console.log("  Removed areDataLinksAutomatic (was absent before tests)");
-    }
+  // Delete all preferences that currently exist
+  const currentPrefsResp = await apiContext.get("/api/preference");
+  const currentPrefs = currentPrefsResp.ok()
+    ? await currentPrefsResp.json()
+    : {};
+  for (const key of Object.keys(currentPrefs)) {
+    await apiContext.delete(`/api/preference/${encodeURIComponent(key)}`);
   }
+
+  // Restore all preferences that existed before the tests
+  const savedPreferences = state.preferences ?? {};
+  for (const [key, value] of Object.entries(savedPreferences)) {
+    await apiContext.put(`/api/preference/${encodeURIComponent(key)}`, {
+      data: value,
+    });
+  }
+  console.log(
+    `  Restored ${Object.keys(savedPreferences).length} preference(s)`,
+  );
 
   await apiContext.dispose();
 

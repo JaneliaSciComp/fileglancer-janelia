@@ -43,22 +43,17 @@ async function saveAndCleanTestState(baseURL) {
   const proxiedPathsResp = await apiContext.get("/api/proxied-path");
   const proxiedPaths = (await proxiedPathsResp.json()).paths ?? [];
 
-  // Fetch the areDataLinksAutomatic preference (may be 404 if never set)
-  let autoLinksPreference = null;
-  const prefResp = await apiContext.get(
-    "/api/preference/areDataLinksAutomatic",
-  );
-  if (prefResp.ok()) {
-    autoLinksPreference = await prefResp.json();
-  }
+  // Fetch all preferences
+  const prefsResp = await apiContext.get("/api/preference");
+  const preferences = prefsResp.ok() ? await prefsResp.json() : {};
 
   // Write state file before making any changes
   fs.writeFileSync(
     STATE_FILE,
-    JSON.stringify({ proxiedPaths, autoLinksPreference }, null, 2),
+    JSON.stringify({ proxiedPaths, preferences }, null, 2),
   );
   console.log(
-    `  Saved ${proxiedPaths.length} data link(s), areDataLinksAutomatic=${JSON.stringify(autoLinksPreference)}`,
+    `  Saved ${proxiedPaths.length} data link(s), ${Object.keys(preferences).length} preference(s)`,
   );
 
   // Delete the test data links so tests start from a clean slate
@@ -66,9 +61,9 @@ async function saveAndCleanTestState(baseURL) {
     await apiContext.delete(`/api/proxied-path/${link.sharing_key}`);
   }
 
-  // Reset preference to its default (absent) so tests aren't affected by it
-  if (autoLinksPreference !== null) {
-    await apiContext.delete("/api/preference/areDataLinksAutomatic");
+  // Delete all preferences so tests start from a clean slate
+  for (const key of Object.keys(preferences)) {
+    await apiContext.delete(`/api/preference/${encodeURIComponent(key)}`);
   }
 
   await apiContext.dispose();
