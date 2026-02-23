@@ -1,0 +1,14 @@
+{
+  "name": "fileglancer-dev-server-integration-tests",
+  "version": "1.0.0",
+  "description": "Fileglancer Development Server Integration Tests",
+  "type": "module",
+  "scripts": {
+    "test": "npx playwright test",
+    "test-trace": "npx playwright test -- --trace on"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.58.2",
+    "dotenv": "^17.3.1"
+  }
+}

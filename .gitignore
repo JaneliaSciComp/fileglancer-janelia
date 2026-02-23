@@ -10,3 +10,10 @@ __pycache__
 .claude
 CLAUDE.md
 
+# Playwright
+.auth
+playwright-report
+test-results
+
+# Node modules
+node_modules
