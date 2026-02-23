@@ -26,7 +26,8 @@ export const navigateToZarrDir = async (page) => {
   // Click the Go button
   const goButton = page.getByRole("button", { name: /^Go$/i });
   await goButton.click();
-
+  // Confirm new page fully loaded
+  await page.waitForLoadState("domcontentloaded");
   // Verify we navigated to the test directory by looking in the bread crumbs
   await expect(
     page.getByRole("link", {
@@ -35,6 +36,4 @@ export const navigateToZarrDir = async (page) => {
   ).toBeVisible();
   // Wait for zarr metadata to load
   await expect(page.getByText(".zattrs")).toBeVisible();
-  // Confirm page fully loaded
-  await page.waitForLoadState("domcontentloaded");
 };
