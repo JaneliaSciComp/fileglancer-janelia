@@ -54,6 +54,7 @@ test.describe("Data Link Operations", () => {
       await navigateToZarrDir(page);
 
       // Look for the "Data Link" toggle in the properties panel to be checked
+      await expect(dataLinkToggle).toBeVisible();
       await expect(dataLinkToggle).toBeChecked();
     });
 
