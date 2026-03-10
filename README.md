@@ -46,11 +46,7 @@ pixi run -e playwright npx --prefix playwright playwright install chromium
 
 ### Authentication
 
-Tests authenticate via a session cookie. There are two ways to obtain one:
-
-**Option A — API key (recommended):**
-
-Copy `playwright/.env.example` to `playwright/.env` and fill in your credentials:
+Tests authenticate via a session cookie. To obtain one, copy `playwright/.env.example` to `playwright/.env` and fill the value of `FCG_TEST_API_KEY`. The server must have a matching `test_api_key` set in its config. The session is created automatically on the first run and cached in `playwright/.auth/user.json` until it expires.
 
 ```bash
 cp playwright/.env.example playwright/.env
@@ -58,14 +54,7 @@ cp playwright/.env.example playwright/.env
 
 ```yaml
 FGC_TEST_API_KEY=<key configured on the fileglancer-dev server>
-FGC_TEST_USERNAME=<your Janelia username>
 ```
-
-The server must have `enable_test_api_key = true` and a matching `test_api_key` set in its config. The session is created automatically on the first run and cached in `playwright/.auth/user.json` until it expires.
-
-**Option B — Manual Okta login:**
-
-Leave `FGC_TEST_API_KEY` unset. On the first run a headed browser window opens; complete the Okta MFA challenge and the session is cached for subsequent runs.
 
 ### Running the tests
 

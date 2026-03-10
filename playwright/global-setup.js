@@ -77,18 +77,11 @@ async function globalSetup(config) {
     fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
 
     if (process.env.FGC_TEST_API_KEY) {
-      const username = process.env.FGC_TEST_USERNAME;
-      if (!username) {
-        throw new Error(
-          "FGC_TEST_USERNAME must be set when using API key authentication",
-        );
-      }
-
       const context = await request.newContext({ baseURL });
       const response = await context.post("/api/auth/test-login", {
         headers: {
           "X-API-Key": process.env.FGC_TEST_API_KEY,
-          "X-API-Username": username,
+          "X-API-Username": "jacs",
         },
       });
 
@@ -119,8 +112,9 @@ async function globalSetup(config) {
       console.log("Login successful. Auth state saved.\n");
     }
   } else {
-    const expiry = JSON.parse(fs.readFileSync(AUTH_FILE, "utf-8"))
-      .cookies?.find((c) => c.name === "fg_session")?.expires;
+    const expiry = JSON.parse(
+      fs.readFileSync(AUTH_FILE, "utf-8"),
+    ).cookies?.find((c) => c.name === "fg_session")?.expires;
     console.log(
       `\nReusing cached auth state (expires: ${new Date(expiry * 1000).toLocaleString()})\n`,
     );
