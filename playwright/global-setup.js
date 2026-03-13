@@ -81,7 +81,6 @@ async function globalSetup(config) {
       const response = await context.post("/api/auth/test-login", {
         headers: {
           "X-API-Key": process.env.FGC_TEST_API_KEY,
-          "X-API-Username": "jacs",
         },
       });
 
@@ -92,7 +91,7 @@ async function globalSetup(config) {
 
       await context.storageState({ path: AUTH_FILE });
       await context.dispose();
-      console.log("\nLogged in as jacs via API key.\n");
+      console.log("\nLogged in via API key.\n");
     } else {
       console.log("\nNo API key set. Opening browser for manual Okta login...");
       console.log(
