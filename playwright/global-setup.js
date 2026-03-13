@@ -92,7 +92,7 @@ async function globalSetup(config) {
 
       await context.storageState({ path: AUTH_FILE });
       await context.dispose();
-      console.log(`\nLogged in as ${username} via API key.\n`);
+      console.log("\nLogged in as jacs via API key.\n");
     } else {
       console.log("\nNo API key set. Opening browser for manual Okta login...");
       console.log(
