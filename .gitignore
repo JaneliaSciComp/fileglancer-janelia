@@ -4,9 +4,16 @@ __pycache__
 *.egg-info
 
 # Environment
-.env*
+.env
 
 # AI tools
 .claude
 CLAUDE.md
 
+# Playwright
+.auth
+playwright-report
+test-results
+
+# Node modules
+node_modules

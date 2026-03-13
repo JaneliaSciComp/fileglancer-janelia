@@ -36,7 +36,7 @@ include-package-data = true
 [tool.setuptools.packages.find]
 exclude = ["tests*"]
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "osx-64", "linux-64"]
 
@@ -52,7 +52,15 @@ test = { cmd = "pytest", depends-on = ["test-install"] }
 [tool.pixi.environments]
 default = {features = [], solve-group = "default"}
 test = {features = ["test"], solve-group = "default"}
+playwright = ["playwright"]
 
 [tool.pixi.dependencies]
 python = "3.12.*"
 pip = ">=25.0.1,<26"
+
+[tool.pixi.feature.playwright.dependencies]
+nodejs = ">=25.6.1,<25.7"
+
+[tool.pixi.feature.playwright.tasks]
+npm-install-tests-ui = "npm --prefix playwright install"
+test-ui = { cmd = "npm --prefix playwright run test ", depends-on = ["npm-install-tests-ui"] }
