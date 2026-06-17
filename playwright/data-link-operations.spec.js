@@ -4,30 +4,54 @@ import { navigateToZarrDir, ZARR_DIR_NAME } from "./utils";
 // The name shown for this zarr directory in the Data Links table.
 // Update if the UI shows a different label (e.g. full path vs. directory name).
 const zarrDirName = ZARR_DIR_NAME;
+const subDirName = "1";
+
+const deleteLinkViaPropertiesPanel = async (
+  page,
+  dataLinkToggle,
+  confirmDeleteButton,
+  propertiesPanel,
+) => {
+  await dataLinkToggle.click();
+  await expect(confirmDeleteButton).toBeVisible();
+  await confirmDeleteButton.click();
+  await expect(page.getByText("Successfully deleted data link")).toBeVisible();
+  await expect(dataLinkToggle).not.toBeChecked();
+};
 
 test.describe("Data Link Operations", () => {
+  // Locators are recreated in beforeEach so each test gets fresh handles bound
+  // to its own page. Declared at describe scope so test bodies can see them.
+  let neuroglancerLink;
+  let dataLinkToggle;
+  let confirmButton;
+  let confirmDeleteButton;
+  let propertiesPanel;
+
   test.beforeEach(async ({ page }) => {
     await navigateToZarrDir(page);
+
+    propertiesPanel = page
+      .locator('[role="complementary"]')
+      .filter({ hasText: "Properties" });
+
+    neuroglancerLink = page.getByAltText(/neuroglancer/i);
+
+    dataLinkToggle = page.getByRole("checkbox", {
+      name: /data link/i,
+    });
+    confirmButton = page.getByRole("button", {
+      name: /confirm|create|yes/i,
+    });
+    confirmDeleteButton = page.getByRole("button", {
+      name: /delete/i,
+    });
   });
 
   test("Create data link via viewer icon, delete via properties panel, recreate via properties panel, then delete via links page", async ({
     page,
   }) => {
-    const neuroglancerLink = page.getByRole("link", {
-      name: "Neuroglancer logo",
-    });
-    const dataLinkToggle = page.getByRole("checkbox", {
-      name: /data link/i,
-    });
-    const confirmButton = page.getByRole("button", {
-      name: /confirm|create|yes/i,
-    });
-    const confirmDeleteButton = page.getByRole("button", {
-      name: /delete/i,
-    });
-
-    await test.step("Turn on automatic data links via the data link dialog", async () => {
-      await expect(neuroglancerLink).toBeVisible();
+    await test.step("Data link format defaults to transparent path", async () => {
       await neuroglancerLink.click();
 
       // Confirm the data link creation in the dialog
@@ -59,13 +83,12 @@ test.describe("Data Link Operations", () => {
     });
 
     await test.step("Delete data link via properties panel", async () => {
-      await dataLinkToggle.click();
-      await expect(confirmDeleteButton).toBeVisible();
-      await confirmDeleteButton.click();
-      await expect(
-        page.getByText("Successfully deleted data link"),
-      ).toBeVisible();
-      await expect(dataLinkToggle).not.toBeChecked();
+      await deleteLinkViaPropertiesPanel(
+        page,
+        dataLinkToggle,
+        confirmDeleteButton,
+        propertiesPanel,
+      );
     });
 
     await test.step("Recreate data link via properties panel", async () => {
