@@ -57,7 +57,22 @@ test.describe("Data Link Operations", () => {
       // Confirm the data link creation in the dialog
       await expect(confirmButton).toBeVisible();
 
-      // Enable automatic data links
+      // Check that the data link format is set to "Transparent path" in the dialog
+      const advancedSettingsAccordion = page.getByRole("button", {
+        name: /advanced settings/i,
+      });
+      await advancedSettingsAccordion.click();
+      const fullPathInput = page.getByLabel("Full path");
+      await expect(fullPathInput).toBeChecked();
+    });
+
+    await test.step("Change data link format to directory name only", async () => {
+      const nameOnlyInput = page.getByLabel("Directory name only");
+      await nameOnlyInput.click();
+      await expect(nameOnlyInput).toBeChecked();
+    });
+
+    await test.step("Turn on automatic data links via the data link dialog", async () => {
       const autoLinkCheckbox = page.getByRole("checkbox", {
         name: "Enable automatic data link creation",
       });
@@ -76,6 +91,7 @@ test.describe("Data Link Operations", () => {
 
       // Navigate back to the zarr directory to check data link status; the above click takes you to Neuroglancer
       await navigateToZarrDir(page);
+      await page.waitForLoadState("domcontentloaded");
 
       // Look for the "Data Link" toggle in the properties panel to be checked
       await expect(dataLinkToggle).toBeVisible();
@@ -95,6 +111,7 @@ test.describe("Data Link Operations", () => {
       await dataLinkToggle.click();
       // Navigate back to the zarr directory to check data link status; the above click takes you to Neuroglancer
       await navigateToZarrDir(page);
+      await expect(page.getByAltText(/neuroglancer/i)).toBeVisible();
       await expect(dataLinkToggle).toBeChecked();
     });
 
@@ -132,5 +149,87 @@ test.describe("Data Link Operations", () => {
         page.getByText("Data link created successfully"),
       ).toBeVisible();
     });
+  });
+
+  test("Data link created for subdirectory clicked from parent shows subdirectory name", async ({
+    page,
+  }) => {
+    // Click the second subdirectory row, on folder cell to populate properties panel without navigating in
+    await page.getByRole("cell", { name: "Folder" }).nth(1).click();
+
+    // Wait for properties panel to show the subdirectory name
+    await expect(
+      propertiesPanel.getByText(subDirName, { exact: true }),
+    ).toBeVisible({ timeout: 10000 });
+
+    // Wait for the data link toggle to appear
+    const dataLinkToggle = propertiesPanel.getByRole("checkbox", {
+      name: /data link/i,
+    });
+    await expect(dataLinkToggle).toBeVisible({ timeout: 10000 });
+
+    // Click the toggle to create a data link
+    await dataLinkToggle.click();
+
+    // When automatic data link creation is off, toggling opens a confirmation
+    // dialog that must be confirmed before the link is created.
+    const createButton = page.getByRole("button", {
+      name: /create data link/i,
+    });
+    if (await createButton.isVisible().catch(() => false)) {
+      await createButton.click();
+    }
+
+    await expect(
+      page.getByText("Data link created successfully"),
+    ).toBeVisible();
+
+    // Navigate to the Data links page
+    const linksNavButton = page.getByRole("link", { name: "Data links" });
+    await linksNavButton.click();
+
+    await expect(page.getByRole("heading", { name: /links/i })).toBeVisible();
+
+    // Verify the data link has the subdirectory name, not the parent directory name
+    const linkRow = page.getByText(subDirName, { exact: true });
+    await expect(linkRow).toBeVisible({ timeout: 10000 });
+  });
+
+  test("Viewer icon creates data link for current directory even when subdirectory row is selected", async ({
+    page,
+  }) => {
+    //delete existing parent directory link
+    await deleteLinkViaPropertiesPanel(
+      page,
+      dataLinkToggle,
+      confirmDeleteButton,
+      propertiesPanel,
+    );
+
+    // Click the second subdirectory row, on folder cell to populate properties panel without navigating in
+    await page.getByRole("cell", { name: "Folder" }).nth(1).click();
+
+    // Verify subdirectory name is selected in properties panel
+    await expect(
+      propertiesPanel.getByText(subDirName, { exact: true }),
+    ).toBeVisible();
+
+    // Click the Neuroglancer viewer icon — this should create a data link
+    // for the zarr directory (currentFileOrFolder), not for s0 (propertiesTarget)
+    await neuroglancerLink.click();
+
+    await expect(
+      page.getByText("Data link created successfully"),
+    ).toBeVisible();
+
+    // Navigate back to check the data link on the links page
+    await page.goto("/browse", { waitUntil: "domcontentloaded" });
+    const linksNavButton = page.getByRole("link", { name: "Data links" });
+    await linksNavButton.click();
+
+    await expect(page.getByRole("heading", { name: /links/i })).toBeVisible();
+
+    // The data link should be for the zarr directory, not the 0 subdirectory
+    await expect(page.getByText(zarrDirName, { exact: true })).toBeVisible();
   });
 });
