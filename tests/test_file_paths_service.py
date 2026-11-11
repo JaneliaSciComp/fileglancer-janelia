@@ -158,15 +158,15 @@ def test_service_not_ready_raises(fake_service):
 def test_service_url_comes_from_the_environment(fake_service, monkeypatch):
     responses, requested_urls = fake_service
     monkeypatch.setenv("FILE_PATHS_SERVICE_URL", "https://filepaths-test.example/")
-    responses["/api/v1/external-buckets?listed=true"] = FakeResponse(200, {"buckets": [], "updated_at": UPDATED_AT})
+    responses["/api/v1/published-datasets?listed=true"] = FakeResponse(200, {"datasets": [], "updated_at": UPDATED_AT})
     file_paths_service.get_external_buckets()
-    assert requested_urls == ["https://filepaths-test.example/api/v1/external-buckets?listed=true"]
+    assert requested_urls == ["https://filepaths-test.example/api/v1/published-datasets?listed=true"]
 
 
 def test_buckets_need_a_filesystem_path(fake_service):
     responses, _ = fake_service
-    responses["/api/v1/external-buckets?listed=true"] = FakeResponse(200, {
-        "buckets": [
+    responses["/api/v1/published-datasets?listed=true"] = FakeResponse(200, {
+        "datasets": [
             {"name": "janelia-mouselight", "external_url": "https://s3.janelia.org/janelia-mouselight/",
              "full_path": "/groups/mousebrainmicro/mousebrainmicro/s3", "bucket": "b", "system": "PRFS", "prefix": "",
              "listed": True},

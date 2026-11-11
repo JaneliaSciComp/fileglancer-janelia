@@ -94,12 +94,25 @@ def get_file_share_paths() -> tuple[list[dict], datetime]:
 def get_external_buckets() -> tuple[list[dict], datetime]:
     """Fetch the external buckets, in the shape wiki.get_external_buckets returns.
 
-    These are the datasets published on s3.janelia.org. `listed=true` leaves
-    out the ones the proxy serves but doesn't show in its listing (aliases and
-    tests). Every record has a full_path, which update_db needs to find the
-    owning share.
+    They come from /api/v1/published-datasets, not /api/v1/buckets:
+
+    - /api/v1/buckets is every S3 bucket on VAST, internal ones included, one
+      record per bucket. Fileglancer's external_buckets table holds only
+      folders with a public URL, as the wiki ingest did (it skipped every
+      row without an External URL).
+    - /api/v1/published-datasets is what is published on s3.janelia.org, one
+      record per public name. That is the unit Fileglancer stores: a folder
+      (`full_path`) and its public URL (`external_url`). One bucket can be
+      published as several datasets, each a different folder of it, and only
+      this endpoint has a record for each.
+    - It returns 503 instead of an empty list when nothing can be served, so
+      a bad refresh upstream never reads as "delete every bucket".
+
+    `listed=true` leaves out the datasets the proxy serves but doesn't show
+    in its listing (aliases and tests). Every record has a full_path, which
+    update_db needs to find the owning share.
     """
-    records, updated_at = _get_dataset("/api/v1/external-buckets?listed=true", "buckets")
+    records, updated_at = _get_dataset("/api/v1/published-datasets?listed=true", "datasets")
     buckets = [
         {'full_path': record['full_path'], 'external_url': record['external_url']}
         for record in records
