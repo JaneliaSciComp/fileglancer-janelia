@@ -142,8 +142,12 @@ def find_owning_share(full_path, file_share_paths):
     return max(containing_shares, key=lambda fsp: len(fsp.mount_path.rstrip('/')), default=None)
 
 
-def update_external_buckets(session, buckets, table_last_updated):
-    """Update database with new external buckets"""
+def update_external_buckets(session, buckets, table_last_updated, max_buckets_to_delete=2):
+    """Update database with new external buckets.
+
+    Buckets the source no longer lists are deleted, at most
+    max_buckets_to_delete per run.
+    """
     # Get all file share paths to determine fsp_name and relative_path
     all_fsp = session.query(FileSharePathDB).all()
 
@@ -193,8 +197,12 @@ def update_external_buckets(session, buckets, table_last_updated):
     # Delete records that no longer exist
     buckets_to_delete = existing_buckets - new_buckets
     if buckets_to_delete:
-        logger.debug(f"Deleting {len(buckets_to_delete)} defunct external buckets from the database")
-        session.query(ExternalBucketDB).filter(ExternalBucketDB.full_path.in_(buckets_to_delete)).delete(synchronize_session='fetch')
+        defunct_buckets = ", ".join(sorted(buckets_to_delete))
+        if len(buckets_to_delete) > max_buckets_to_delete:
+            logger.warning(f"Cannot delete {len(buckets_to_delete)} defunct external buckets from the database, only {max_buckets_to_delete} are allowed: {defunct_buckets}")
+        else:
+            logger.debug(f"Deleting {len(buckets_to_delete)} defunct external buckets from the database: {defunct_buckets}")
+            session.query(ExternalBucketDB).filter(ExternalBucketDB.full_path.in_(buckets_to_delete)).delete(synchronize_session='fetch')
 
     # Update last refresh time
     table_name = "external_buckets"
@@ -237,13 +245,15 @@ def check_file_share_paths(db_url: str, source: ModuleType | None = None,
         return True
 
 
-def check_external_buckets(db_url: str, source: ModuleType | None = None) -> bool:
+def check_external_buckets(db_url: str, source: ModuleType | None = None,
+                           max_buckets_to_delete: int = 2) -> bool:
     """
     Update external buckets from the source if needed.
 
     Args:
         db_url: Database URL to use
         source: Module to read from (default: the one FILEGLANCER_JANELIA_SOURCE selects)
+        max_buckets_to_delete: Most defunct buckets one run may delete
 
     Returns:
         True if update was performed, False otherwise
@@ -262,7 +272,7 @@ def check_external_buckets(db_url: str, source: ModuleType | None = None) -> boo
             return False
 
         logger.info("External buckets have changed, updating...")
-        update_external_buckets(session, new_buckets, table_last_updated)
+        update_external_buckets(session, new_buckets, table_last_updated, max_buckets_to_delete=max_buckets_to_delete)
         logger.info(f"Successfully updated {len(new_buckets)} external buckets")
         return True
 
@@ -272,7 +282,8 @@ def main():
     argument_parser = argparse.ArgumentParser(description="Update Fileglancer's file share paths and external buckets")
     argument_parser.add_argument(
         "--max-deletes", type=int, default=2,
-        help="most defunct file share paths to delete in this run (default 2). Raise it only for a "
+        help="most defunct file share paths, and most defunct external buckets, to delete in this run "
+             "(default 2 of each). Raise it only for a "
              "one-off cleanup, after checking the names aren't referenced (see compare_sources).",
     )
     argument_parser.add_argument(
@@ -311,7 +322,7 @@ def main():
         error = True
 
     try:
-        check_external_buckets(settings.db_url, source)
+        check_external_buckets(settings.db_url, source, max_buckets_to_delete=arguments.max_deletes)
     except Exception as e:
         logger.exception(f"Error updating external buckets: {e}")
         error = True

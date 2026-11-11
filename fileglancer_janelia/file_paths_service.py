@@ -15,6 +15,7 @@ own settings read from the shared .env file):
 
 import os
 from datetime import datetime
+from urllib.parse import urlparse
 
 import requests
 from loguru import logger
@@ -25,7 +26,34 @@ DEFAULT_SERVICE_URL = "https://filepaths.int.janelia.org"
 
 
 def service_url() -> str:
-    return os.environ.get("FILE_PATHS_SERVICE_URL", DEFAULT_SERVICE_URL).rstrip("/")
+    """The service's base URL. The service decides which directories Fileglancer
+    serves, so it is only read over https (or from this machine)."""
+    configured_url = os.environ.get("FILE_PATHS_SERVICE_URL", DEFAULT_SERVICE_URL).rstrip("/")
+    parsed_url = urlparse(configured_url)
+    is_local = parsed_url.scheme == "http" and parsed_url.hostname in ("localhost", "127.0.0.1")
+    if parsed_url.scheme != "https" and not is_local:
+        raise ValueError(f"FILE_PATHS_SERVICE_URL must use https, not {configured_url!r}")
+    return configured_url
+
+
+def _validate_share(record: dict) -> None:
+    """Raise if a share record isn't safe to store. One bad record fails the
+    whole fetch: leaving it out would make update_db delete the share."""
+    linux_path = record["linux_path"]
+    # Favourites, data links and tickets refer to a share by name, and the
+    # wiki ingest has always named shares slugify_path(linux_path). Never
+    # let a different naming scheme from upstream rename shares.
+    expected_name = slugify_path(linux_path)
+    if record["name"] != expected_name:
+        raise ValueError(f"{linux_path}: service name {record['name']!r} is not the expected {expected_name!r}")
+    # mount_path is the directory Fileglancer serves. Like the wiki ingest,
+    # only accept the share's own linux_path, as a plain absolute path.
+    mount_path = record["mount_path"]
+    is_plain_absolute_path = (
+        mount_path.startswith("/") and mount_path != "/" and os.path.normpath(mount_path) == mount_path
+    )
+    if mount_path != linux_path or not is_plain_absolute_path:
+        raise ValueError(f"{linux_path}: mount path {mount_path!r} is not the share's plain absolute linux path")
 
 
 def _get_dataset(api_path: str, records_key: str) -> tuple[list[dict], datetime]:
@@ -46,16 +74,7 @@ def get_file_share_paths() -> tuple[list[dict], datetime]:
 
     paths = []
     for record in records:
-        # Favourites, data links and tickets refer to a share by name, and the
-        # wiki ingest has always named shares slugify_path(linux_path). Never
-        # let a different naming scheme from upstream rename shares.
-        expected_name = slugify_path(record["linux_path"])
-        if record["name"] != expected_name:
-            logger.error(
-                f"Skipping {record['linux_path']}: service name {record['name']!r} "
-                f"is not the expected {expected_name!r}"
-            )
-            continue
+        _validate_share(record)
         paths.append({
             'name': record['name'],
             'zone': record['zone'],
@@ -75,10 +94,12 @@ def get_file_share_paths() -> tuple[list[dict], datetime]:
 def get_external_buckets() -> tuple[list[dict], datetime]:
     """Fetch the external buckets, in the shape wiki.get_external_buckets returns.
 
-    Only buckets the service could map to a filesystem path are returned
-    (its default); update_db needs full_path to find the owning share.
+    These are the datasets published on s3.janelia.org. `listed=true` leaves
+    out the ones the proxy serves but doesn't show in its listing (aliases and
+    tests). Every record has a full_path, which update_db needs to find the
+    owning share.
     """
-    records, updated_at = _get_dataset("/api/v1/buckets", "buckets")
+    records, updated_at = _get_dataset("/api/v1/external-buckets?listed=true", "buckets")
     buckets = [
         {'full_path': record['full_path'], 'external_url': record['external_url']}
         for record in records

@@ -39,7 +39,7 @@ script can read from it instead of the wiki:
 | Variable | Default | |
 |---|---|---|
 | `FILEGLANCER_JANELIA_SOURCE` | `wiki` | `wiki`, or `file-paths-service` |
-| `FILE_PATHS_SERVICE_URL` | `https://filepaths.int.janelia.org` | The service to read |
+| `FILE_PATHS_SERVICE_URL` | `https://filepaths.int.janelia.org` | The service to read. Must be `https`, or `http://localhost` |
 | `FILE_PATHS_SERVICE_TIMEOUT` | `60` | Seconds per request |
 
 These deliberately don't start with `FGC_`: Fileglancer reads `FGC_*` keys from the shared
@@ -47,10 +47,14 @@ These deliberately don't start with `FGC_`: Fileglancer reads `FGC_*` keys from 
 
 The service's share names are exactly `slugify_path(linux_path)`, the names the wiki ingest
 has always used, so favourites, data links and tickets keep pointing at the same shares. The
-update script skips, and logs, any record whose name isn't. Existing records are matched by
+update script refuses the whole update, and logs why, if any record's name isn't, or if its
+`mount_path` isn't its `linux_path` as a plain absolute path. Existing records are matched by
 name first, then by mount path, so a share whose path the wiki spelled differently (such as
 `/groups//zebrafishbbl/home`) is corrected in place, not duplicated. If the service is down or
 not ready it returns an error, and the database is left as it is.
+
+Shares and buckets the source no longer lists are deleted, at most 2 of each per run
+(`--max-deletes`). A larger set is kept and logged.
 
 ### Before switching: a dry run
 

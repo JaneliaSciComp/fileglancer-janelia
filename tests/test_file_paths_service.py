@@ -4,13 +4,14 @@ import pytest
 import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from fileglancer.database import Base, FileSharePathDB, LastRefreshDB
+from fileglancer.database import Base, ExternalBucketDB, FileSharePathDB, LastRefreshDB
 
 from fileglancer_janelia import file_paths_service
 from fileglancer_janelia.update_db import (
     find_owning_share,
     get_source,
     get_source_name,
+    update_external_buckets,
     update_file_share_paths,
 )
 
@@ -100,7 +101,8 @@ def test_paths_use_fileglancer_fields_and_blank_groups(fake_service):
     assert set(paths[0]) == {"name", "zone", "group", "storage", "mount_path", "mac_path", "windows_path", "linux_path"}
 
 
-def test_a_name_that_isnt_the_slugified_path_is_skipped(fake_service):
+def test_a_name_that_isnt_the_slugified_path_fails_the_fetch(fake_service):
+    # Leaving the record out would make update_db delete the share.
     responses, _ = fake_service
     responses["/api/v1/paths"] = FakeResponse(200, {
         "paths": [
@@ -109,8 +111,41 @@ def test_a_name_that_isnt_the_slugified_path_is_skipped(fake_service):
         ],
         "updated_at": UPDATED_AT,
     })
-    paths, _ = file_paths_service.get_file_share_paths()
-    assert [path["linux_path"] for path in paths] == ["/groups/abbott/abbottlab"]
+    with pytest.raises(ValueError, match="abbott-home"):
+        file_paths_service.get_file_share_paths()
+
+
+@pytest.mark.parametrize("linux_path, mount_path", [
+    ("/groups/abbott/home", "/"),                       # not the share's own path
+    ("/groups/abbott/home", "/groups/abbott"),
+    ("/groups/abbott/../../etc", "/groups/abbott/../../etc"),
+    ("/groups//abbott/home", "/groups//abbott/home"),
+    ("~", "~"),
+    ("groups/abbott/home", "groups/abbott/home"),
+    ("/", "/"),
+])
+def test_a_mount_path_that_isnt_the_plain_linux_path_fails_the_fetch(fake_service, linux_path, mount_path):
+    responses, _ = fake_service
+    record = service_record(linux_path)
+    record.update(name=file_paths_service.slugify_path(linux_path), mount_path=mount_path)
+    responses["/api/v1/paths"] = FakeResponse(200, {"paths": [record], "updated_at": UPDATED_AT})
+    with pytest.raises(ValueError, match="mount path"):
+        file_paths_service.get_file_share_paths()
+
+
+@pytest.mark.parametrize("configured_url, is_accepted", [
+    ("https://filepaths-test.example", True),
+    ("http://localhost:8000", True),
+    ("http://filepaths.int.janelia.org", False),
+    ("filepaths.int.janelia.org", False),
+])
+def test_service_url_must_be_https_or_local(monkeypatch, configured_url, is_accepted):
+    monkeypatch.setenv("FILE_PATHS_SERVICE_URL", configured_url)
+    if is_accepted:
+        assert file_paths_service.service_url() == configured_url
+    else:
+        with pytest.raises(ValueError, match="https"):
+            file_paths_service.service_url()
 
 
 def test_service_not_ready_raises(fake_service):
@@ -123,17 +158,18 @@ def test_service_not_ready_raises(fake_service):
 def test_service_url_comes_from_the_environment(fake_service, monkeypatch):
     responses, requested_urls = fake_service
     monkeypatch.setenv("FILE_PATHS_SERVICE_URL", "https://filepaths-test.example/")
-    responses["/api/v1/buckets"] = FakeResponse(200, {"buckets": [], "updated_at": UPDATED_AT})
+    responses["/api/v1/external-buckets?listed=true"] = FakeResponse(200, {"buckets": [], "updated_at": UPDATED_AT})
     file_paths_service.get_external_buckets()
-    assert requested_urls == ["https://filepaths-test.example/api/v1/buckets"]
+    assert requested_urls == ["https://filepaths-test.example/api/v1/external-buckets?listed=true"]
 
 
 def test_buckets_need_a_filesystem_path(fake_service):
     responses, _ = fake_service
-    responses["/api/v1/buckets"] = FakeResponse(200, {
+    responses["/api/v1/external-buckets?listed=true"] = FakeResponse(200, {
         "buckets": [
             {"name": "janelia-mouselight", "external_url": "https://s3.janelia.org/janelia-mouselight/",
-             "full_path": "/groups/mousebrainmicro/mousebrainmicro/s3", "bucket": "b", "system": "PRFS", "prefix": ""},
+             "full_path": "/groups/mousebrainmicro/mousebrainmicro/s3", "bucket": "b", "system": "PRFS", "prefix": "",
+             "listed": True},
             {"name": "unmatched", "external_url": "https://s3.janelia.org/unmatched/",
              "full_path": None, "bucket": None, "system": None, "prefix": None},
         ],
@@ -194,6 +230,27 @@ def test_defunct_shares_are_deleted_only_within_the_limit(db_session):
     update_file_share_paths(db_session, as_path_dicts(first_paths[:3]), datetime.now(UTC))
     assert {record.mount_path for record in db_session.query(FileSharePathDB)} == {
         "/groups/lab0/home", "/groups/lab1/home", "/groups/lab2/home",
+    }
+
+
+def test_defunct_buckets_are_deleted_only_within_the_limit(db_session):
+    update_file_share_paths(db_session, as_path_dicts([service_record("/groups/lab/home")]), datetime.now(UTC))
+    first_buckets = [
+        {"full_path": f"/groups/lab/home/bucket{number}", "external_url": f"https://s3.janelia.org/bucket{number}/"}
+        for number in range(5)
+    ]
+    update_external_buckets(db_session, first_buckets, datetime.now(UTC))
+
+    # Three gone at once (or all of them, if the source's mapping broke): nothing is deleted.
+    update_external_buckets(db_session, first_buckets[:2], datetime.now(UTC))
+    assert db_session.query(ExternalBucketDB).count() == 5
+    update_external_buckets(db_session, [], datetime.now(UTC))
+    assert db_session.query(ExternalBucketDB).count() == 5
+
+    # Two gone: within the limit.
+    update_external_buckets(db_session, first_buckets[:3], datetime.now(UTC))
+    assert {record.full_path for record in db_session.query(ExternalBucketDB)} == {
+        "/groups/lab/home/bucket0", "/groups/lab/home/bucket1", "/groups/lab/home/bucket2",
     }
 
 
