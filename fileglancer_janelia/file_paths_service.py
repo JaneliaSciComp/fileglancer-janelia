@@ -108,15 +108,24 @@ def get_external_buckets() -> tuple[list[dict], datetime]:
     - It returns 503 instead of an empty list when nothing can be served, so
       a bad refresh upstream never reads as "delete every bucket".
 
-    `listed=true` leaves out the datasets the proxy serves but doesn't show
-    in its listing (aliases and tests). Every record has a full_path, which
-    update_db needs to find the owning share.
+    Unlisted datasets are read too. `listed: false` only means the proxy
+    leaves the dataset out of its listing at https://s3.janelia.org/; its
+    URLs still work, so a folder such as /nrs/fibsem/data_external gets its
+    public data link (https://s3.janelia.org/fib-sem-technology/).
+
+    Fileglancer keeps one URL per folder. Where a folder is published under
+    several names, the listed name is used, then the first by name. Every
+    record has a full_path, which update_db needs to find the owning share.
     """
-    records, updated_at = _get_dataset("/api/v1/published-datasets?listed=true", "datasets")
+    records, updated_at = _get_dataset("/api/v1/published-datasets", "datasets")
+    dataset_by_folder = {}
+    # Listed names first, so setdefault keeps the listed one for a folder.
+    for record in sorted(records, key=lambda record: (not record.get('listed'), record.get('name') or '')):
+        if record.get('full_path') and record.get('external_url'):
+            dataset_by_folder.setdefault(record['full_path'], record)
     buckets = [
-        {'full_path': record['full_path'], 'external_url': record['external_url']}
-        for record in records
-        if record.get('full_path') and record.get('external_url')
+        {'full_path': full_path, 'external_url': record['external_url']}
+        for full_path, record in sorted(dataset_by_folder.items())
     ]
     logger.debug(f"Found {len(buckets)} external buckets in the file-paths-service")
     return buckets, updated_at

@@ -158,14 +158,14 @@ def test_service_not_ready_raises(fake_service):
 def test_service_url_comes_from_the_environment(fake_service, monkeypatch):
     responses, requested_urls = fake_service
     monkeypatch.setenv("FILE_PATHS_SERVICE_URL", "https://filepaths-test.example/")
-    responses["/api/v1/published-datasets?listed=true"] = FakeResponse(200, {"datasets": [], "updated_at": UPDATED_AT})
+    responses["/api/v1/published-datasets"] = FakeResponse(200, {"datasets": [], "updated_at": UPDATED_AT})
     file_paths_service.get_external_buckets()
-    assert requested_urls == ["https://filepaths-test.example/api/v1/published-datasets?listed=true"]
+    assert requested_urls == ["https://filepaths-test.example/api/v1/published-datasets"]
 
 
 def test_buckets_need_a_filesystem_path(fake_service):
     responses, _ = fake_service
-    responses["/api/v1/published-datasets?listed=true"] = FakeResponse(200, {
+    responses["/api/v1/published-datasets"] = FakeResponse(200, {
         "datasets": [
             {"name": "janelia-mouselight", "external_url": "https://s3.janelia.org/janelia-mouselight/",
              "full_path": "/groups/mousebrainmicro/mousebrainmicro/s3", "bucket": "b", "system": "PRFS", "prefix": "",
@@ -180,6 +180,29 @@ def test_buckets_need_a_filesystem_path(fake_service):
         "full_path": "/groups/mousebrainmicro/mousebrainmicro/s3",
         "external_url": "https://s3.janelia.org/janelia-mouselight/",
     }]
+
+
+def test_unlisted_datasets_are_buckets_too_and_a_listed_name_wins_for_a_shared_folder(fake_service):
+    """An unlisted dataset is only left out of the proxy's listing; its URLs work."""
+    responses, _ = fake_service
+
+    def dataset(name, full_path, listed):
+        return {"name": name, "external_url": f"https://s3.janelia.org/{name}/", "full_path": full_path,
+                "bucket": "b", "system": "NRS", "prefix": None, "listed": listed}
+
+    responses["/api/v1/published-datasets"] = FakeResponse(200, {
+        "datasets": [
+            dataset("cellmap-public", "/nrs/cellmap/data_external", False),
+            dataset("cellmap", "/nrs/cellmap/data_external", True),
+            dataset("fib-sem-technology", "/nrs/fibsem/data_external", False),
+        ],
+        "updated_at": UPDATED_AT,
+    })
+    buckets, _ = file_paths_service.get_external_buckets()
+    assert buckets == [
+        {"full_path": "/nrs/cellmap/data_external", "external_url": "https://s3.janelia.org/cellmap/"},
+        {"full_path": "/nrs/fibsem/data_external", "external_url": "https://s3.janelia.org/fib-sem-technology/"},
+    ]
 
 
 # ---------------------------------------------------------------- choosing the source
