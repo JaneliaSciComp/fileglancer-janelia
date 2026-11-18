@@ -42,8 +42,9 @@ script can read from it instead of the wiki:
 | `FILE_PATHS_SERVICE_URL` | `https://filepaths.int.janelia.org` | The service to read. Must be `https`, or `http://localhost` |
 | `FILE_PATHS_SERVICE_TIMEOUT` | `60` | Seconds per request |
 
-These deliberately don't start with `FGC_`: Fileglancer reads `FGC_*` keys from the shared
-`.env` file, and doesn't accept keys it doesn't know.
+Set these on the update unit (see [Switching](#switching)), not in the shared `.env` file in fileglancer-hub.
+They are specific to fileglancer-janelia, and Fileglancer itself is kept general, with no
+Janelia-specific settings.
 
 The service's share names are exactly `slugify_path(linux_path)`, the names the wiki ingest
 has always used, so favourites, data links and tickets keep pointing at the same shares. The
@@ -70,8 +71,18 @@ preferences in that database (a copy of the server's, ideally).
 
 ### Switching
 
-1. Set `FILEGLANCER_JANELIA_SOURCE=file-paths-service` in the `.env` file the systemd service
-   loads (`EnvironmentFile=`). The next timer run updates from the service.
+1. Set the source on the update unit with a systemd drop-in:
+
+   ```bash
+   sudo systemctl edit fileglancer-update.service
+   ```
+
+   ```ini
+   [Service]
+   Environment=FILEGLANCER_JANELIA_SOURCE=file-paths-service
+   ```
+
+   The next timer run updates from the service.
 2. Wiki shares the service doesn't list are deleted, at most 2 per run, so a larger set is kept
    and logged. After checking with `compare-sources --reference-db-url` that nothing refers to
    them, remove them once:
@@ -80,7 +91,7 @@ preferences in that database (a copy of the server's, ideally).
    pixi run update-db --max-deletes 6 --force
    ```
 
-To switch back, set `FILEGLANCER_JANELIA_SOURCE=wiki`.
+To switch back, set `FILEGLANCER_JANELIA_SOURCE=wiki` in the same drop-in, or remove the line.
 
 ## Integration Tests (Playwright)
 
