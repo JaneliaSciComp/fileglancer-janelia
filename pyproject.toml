@@ -18,7 +18,8 @@ dependencies = [
     "loguru >=0.7.2",
     "fileglancer >=4.2.0",
     "lxml >=5.3.1",
-    "pandas >=2.2.3"
+    "pandas >=2.2.3",
+    "requests >=2.31"
 ]
 
 [project.optional-dependencies]
@@ -46,6 +47,8 @@ platforms = ["osx-arm64", "osx-64", "linux-64"]
 dev-install = "pip install -e ."
 dev-update-db = { cmd = "python -m fileglancer_janelia.update_db", depends-on = ["dev-install"], cwd = "../fileglancer" }
 update-db = { cmd = "python -m fileglancer_janelia.update_db", depends-on = ["dev-install"] }
+# Dry run of switching to the file-paths-service, on a scratch database.
+compare-sources = { cmd = "python -m fileglancer_janelia.compare_sources", depends-on = ["dev-install"] }
 
 [tool.pixi.feature.test.tasks]
 test-install = "pip install -e ."
